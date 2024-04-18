@@ -1,0 +1,315 @@
+---
+title: "Factor Analysis"
+author: "Yandra Windesia"
+date: "14/6/2023"
+output:
+  slidy_presentation: default
+  powerpoint_presentation: default
+  beamer_presentation: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Importing packages
+
+```{r}
+library(corrplot)       # used for making correlation plot.
+library(tidyverse)      # metapackage with lots of helpful functions
+library(ggplot2)        # used for plotting
+library(psych)          # used for Factor Analysis
+library(car)            # used for calculating VIF, to check multicollinearity
+library(caTools)        # used for partitioning the data
+```
+
+## Reading in files
+
+```{r}
+hair <- read.csv("C:\\Users\\TOSHIBA\\Downloads\\S2 FMIPA MATEMATIKA UI\\Analisis Statistika Lanjut\\Project UAS\\Factor-Hair-Revised.csv" , header = T)
+dim(hair)
+names(hair)
+```
+
+## Saving Variable names in matrix
+
+```{r}
+variables <- c("Product Quality" , "E-Commerce" , "Technical Support" , "Complaint Resolution" , 
+               "Advertising" , "Product Line" , "Salesforce Image", "Competitive Pricing" , 
+               "Warranty & Claims" , "Order & Billing" , "Delivery Speed" , "Customer Satisfaction")
+```
+
+## Check the structure of the data
+
+```{r}
+str(hair)
+```
+
+## Check summary of the data
+
+```{r}
+summary(hair)
+```
+
+# From summary and structure we learned that the given data is scaled already and no need to scale it again.
+# We also learned that first column named "ID" is just a column number 
+# and we won't be needing in the for process.
+# Create new data frame named hair1 with all data except the column "ID"
+
+```{r}
+hair1 <- hair[,-1]
+```
+
+## Change names of variables 
+
+```{r}
+colnames(hair1) <- variables
+```
+
+## Attach Data 
+
+```{r}
+attach(hair1)
+```
+
+## Missing Values in Data
+
+```{r}
+sum(is.na(hair1))
+```
+
+## Histogram of the Target Variable that is Customer Satisfaction
+
+```{r}
+hist (`Customer Satisfaction`, breaks = c(0:11), labels = T,
+      include.lowest=T, right=T, 
+      col=8, border=1, 
+      main = paste("Histogram of Customer Satisfaction"),
+      xlab= "Customer Satisfaction", ylab="COUNT", 
+      xlim = c(0,11), ylim = c(0,35))
+```
+
+## BoxPlot of the Target Variable that is Customer Satisfaction
+
+```{r}
+boxplot(`Customer Satisfaction`, horizontal = T, xlab = variables[12], ylim=c(0,11))
+```
+
+## Histogram of the independent Variables
+
+```{r}
+par(mfrow = c(3,4)) #Convert Plotting space in 12
+for (i in (1:11)) {
+  
+  h = round(max(hair1[,i]),0)+1
+  
+  l = round(min(hair1[,i]),0)-1
+  
+  n = variables[i]
+  
+  hist (hair1[,i], breaks = seq(l,h,((h-l)/6)), labels = T,
+        include.lowest=T, right=T, 
+        col=8, border=1, 
+        main = NULL, xlab= n, ylab=NULL, 
+        cex.lab=1, cex.axis=1, cex.main=1, cex.sub=1,
+        xlim = c(0,11), ylim = c(0,70))
+}
+```
+
+## Explore data "hair1" using boxplot methods
+
+```{r}
+par(mfrow = c(2,1))
+boxplot(hair1[,-12], las = 2, names = variables[-12], cex.axis = 1)
+```
+
+## Finding Outliers in variables 
+
+```{r}
+list("OutLiers")
+OutLiers <- hair1[(1:12),]
+for (i in c(1:12)) {
+  
+  Box_Plot <- boxplot(hair1[,i],plot = F)$out
+  OutLiers[,i] <- NA
+  
+  if (length(Box_Plot)>0) {
+    OutLiers[(1:length(Box_Plot)),i] <- Box_Plot 
+  }
+}
+
+OutLiers <- OutLiers[(1:6),]
+```
+
+# Write outliers list in csv
+
+```{r}
+write.csv(OutLiers, "OutLiers.csv")
+```
+
+#### Bivariate Analysis ####
+#### Scatter Plot of independent variables against the Target Variable ####
+
+```{r}
+par(mfrow = c(4,3))
+
+for (i in c(1:11)) {
+    plot(hair1[,i],`Customer Satisfaction`, 
+         xlab = variables[i], ylab = NULL, col = "red", 
+         cex.lab=1, cex.axis=1, cex.main=1, cex.sub=1,
+         xlim = c(0,10),ylim = c(0,10))
+    abline(lm(formula = `Customer Satisfaction` ~ hair1[,i]),col = "blue")
+}
+```
+
+## Create correlation matrix 
+
+```{r}
+corlnMtrx <- cor(hair1[,-12])
+corlnMtrx
+```
+
+## Correlation Plot for Data hair1.
+
+```{r}
+corrplot.mixed(corlnMtrx,
+               lower = "number", upper = "pie", 
+               tl.col = "black",tl.pos = "lt")
+```
+
+## Check multicollinearity in independent variables using VIF
+
+```{r}
+vifmatrix <- vif(lm(`Customer Satisfaction` ~., data = hair1))
+vifmatrix
+write.csv(vifmatrix, "vifmatrix.csv")
+```
+
+## Chech corlnMtrx with Bartlett Test 
+
+```{r}
+cortest.bartlett(corlnMtrx, 100)
+```
+
+# If P-value less than 0.05 then it is ideal case for dimention reduction.
+
+## Kaiser-Meyer-Olkin (KMO) Test is a measure of how suited your data is for Factor Analysis.
+
+```{r}
+KMO(corlnMtrx)
+```
+
+## Calculate the Eigen values for the variables 
+
+```{r}
+A <- eigen(corlnMtrx)
+EV <- A$values
+EV
+```
+
+## Ploting scree plot and adding lines.
+
+```{r}
+plot(EV, main = "Scree Plot", xlab = "Factors", ylab = "Eigen Values", pch = 20, col = "blue")
+lines(EV, col = "red")
+abline(h = 1, col = "green", lty = 2)
+```
+
+## As per the above scree plot extracting 4 factors from 11 variables 
+
+## Without rotating 
+
+```{r}
+FourFactor1 = fa(r= hair1[,-12], nfactors =4, rotate ="none", fm ="pa")
+print(FourFactor1)
+```
+
+```{r}
+Loading1 <- print(FourFactor1$loadings,cutoff = 0.3)
+```
+
+```{r}
+write.csv(Loading1, "loading1.csv")
+fa.diagram(FourFactor1)
+```
+
+## With varimax rotating
+
+```{r}
+FourFactor2 = fa(r= hair1[,-12], nfactors =4, rotate ="varimax", fm ="pa")
+print(FourFactor2)
+```
+
+```{r}
+Loading2 <- print(FourFactor2$loadings,cutoff = 0.3)
+```
+
+```{r}
+write.csv(Loading2, "Loading2.csv")
+fa.diagram(FourFactor2)
+```
+
+## Create a new data.structure using scores for four factors and Target varible 
+
+```{r}
+hair2 <- cbind(hair1[,12],FourFactor2$scores)
+head(hair2)   #Check head of the data
+```
+
+## Name the columns for hair2 
+
+```{r}
+colnames(hair2) <- c("Cust.Satisf", "Sales.Distri", "Marketing","After.Sales.Service","Value.For.Money")
+head(hair2)   #Check head of the data
+```
+
+```{r}
+class(hair2)   #Check class of the hair2
+```
+
+```{r}
+hair2 <- as.data.frame(hair2)  # convert matrix to data.frame
+```
+
+## Corplot for the data hair2 
+
+```{r}
+corrplot.mixed(cor(hair2),
+               lower = "number", upper = "pie", 
+               tl.col = "black",tl.pos = "lt")
+```
+
+```{r}
+set.seed(1) #setting flag for randomness
+
+# creating two datasets one to train the model and  another to test the model.
+spl = sample.split(hair2$Cust.Satisf, SplitRatio = 0.8)
+Train = subset(hair2, spl==T)
+Test = subset(hair2, spl==F)
+cat(" Train Dimention: ", dim(Train) ,"\n", "Test Dimention : ", dim(Test))  #check dimentions of Train and Test Data
+```
+
+```{r}
+linearModel = lm(Cust.Satisf ~., data = Train)
+summary(linearModel)
+```
+
+```{r}
+vif(linearModel)
+```
+
+```{r}
+pred = predict(linearModel, newdata = Test)
+
+## Compute R-sq for the test data
+SST = sum((Test$Cust.Satisf - mean(Train$Cust.Satisf))^2)
+SSE = sum((pred - Test$Cust.Satisf)^2)
+SSR = sum((pred - mean(Train$Cust.Satisf))^2)
+R.square.test <- SSR/SST
+
+cat(" SST :", SST, "\n", 
+    "SSE :", SSE, "\n",
+    "SSR :", SSR, "\n",
+    "R squared Test :" , R.square.test)
+```
+
